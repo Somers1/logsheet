@@ -1,3 +1,4 @@
+import os
 import tomllib
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -20,6 +21,10 @@ DJANGO_CONFIG = SYSTEM_CONFIG['django']
 CELERY_CONFIG = SYSTEM_CONFIG['celery']
 CACHE_CONFIG = SYSTEM_CONFIG['cache']
 TASK_QUEUES_CONFIG = SYSTEM_CONFIG['task_queues'][GLOBAL_CONFIG['queue_mode']]
+LANGFUSE_CONFIG = SYSTEM_CONFIG['langfuse']
+
+ENVIRONMENT = SYSTEM_CONFIG['environment']
+os.environ.update(ENVIRONMENT)
 
 SECRET_KEY = DJANGO_CONFIG.get('secret_key')
 SITE_ID = 1
@@ -43,9 +48,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
-    'django_admin_inline_paginator',
     'corsheaders',
-    'knox'
+    'knox',
+    'project'
 ]
 
 MIDDLEWARE = [

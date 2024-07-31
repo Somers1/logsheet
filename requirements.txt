@@ -1,5 +1,6 @@
 redis
 kombu
+msal
 toml
 gevent
 celery
@@ -16,3 +17,9 @@ django-timescaledb
 django-celery-beat
 django-cors-headers
 django-celery-results
+langchain_community
+langchain
+langchain-openai
+langchain-aws
+langfuse
+langgraph
