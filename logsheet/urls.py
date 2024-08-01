@@ -17,7 +17,7 @@ Including another URLconf
 from django.conf import settings
 from django.contrib import admin
 from django.urls import path
-
+from project import  views
 
 urlpatterns = [
 
@@ -25,5 +25,6 @@ urlpatterns = [
 
 if not settings.UNCHAINED:
     urlpatterns += [
-        path("admin/", admin.site.urls)
+        path("admin/", admin.site.urls),
+        path('timesheet/<int:pk>/', views.TimesheetDetailView.as_view(), name='timesheet'),
     ]

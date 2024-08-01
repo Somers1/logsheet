@@ -1,0 +1,34 @@
+
+{% block title %}Timesheet for {{ timesheet.project.name }}{% endblock %}
+
+{% block content %}
+<h1>Timesheet for {{ timesheet.project.name }}</h1>
+
+<div class="timesheet-header">
+    <p><strong>Start Time:</strong> {{ timesheet.start_time }}</p>
+    <p><strong>End Time:</strong> {{ timesheet.end_time }}</p>
+    <p><strong>Created At:</strong> {{ timesheet.created_at }}</p>
+    {% if timesheet.prompt %}
+        <p><strong>Prompt:</strong> {{ timesheet.prompt }}</p>
+    {% endif %}
+</div>
+
+{% with timesheet_days=timesheet.timesheetday_set.all %}
+    {% for day in timesheet_days|dictsort:"date" %}
+        <h2>{{ day.date|date:"F d, Y" }}</h2>
+
+        {% if day.html %}
+            {% autoescape off %}
+                {{ day.html }}
+            {% endautoescape %}
+        {% else %}
+            <p>No timesheet data available for this day.</p>
+        {% endif %}
+
+        <hr>
+    {% empty %}
+        <p>No timesheet days available.</p>
+    {% endfor %}
+{% endwith %}
+
+{% endblock %}

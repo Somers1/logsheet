@@ -1,10 +1,13 @@
 from pathlib import Path
 
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from langchain_core.tools import tool
 
 from project.importers import get_importer
 from .agent import Agent, llm
+import utils
 
 
 class Project(models.Model):
@@ -22,26 +25,20 @@ class Timesheet(models.Model):
     end_time = models.DateTimeField()
     prompt = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    response = models.TextField(null=True, blank=True)
+    daily_html_format = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.project} | {self.start_time} - {self.end_time}'
 
+    @property
+    def days(self):
+        return utils.DateRangeIterator(self.start_time, self.end_time)
+
     def generate(self):
-        events = Event.objects.filter(
-            timestamp__range=[self.start_time, self.end_time], source__project=self.project).order_by('timestamp')
-        event_texts = '\n'.join([f'{event.timestamp}: {event.event_text}' for event in events])
-        prompt = f"""{self.prompt}\n\nEvents:\n{event_texts}\n\n
-        Please save using save_html with times with an estimated total for each day and a summary of work done."""
-
-        @tool
-        def save_html(html: str):
-            """Save the html to the response field"""
-            self.response = html
-            self.save()
-
-        agent = Agent([save_html])
-        agent.invoke(prompt)
+        for day in self.days:
+            timesheet_day, _ = self.timesheetday_set.get_or_create(date=day.date(), timesheet=self)
+            if not timesheet_day.html:
+                timesheet_day.generate()
 
     def save_html_file(self):
         path = Path('media', 'time_sheets')
@@ -49,6 +46,47 @@ class Timesheet(models.Model):
         file_name = path / f'{self.project}_{self.start_time.isoformat()}_{self.end_time.isoformat()}.html'
         with open(file_name, 'w') as file:
             file.write(self.response)
+
+
+class TimesheetDay(models.Model):
+    date = models.DateField()
+    timesheet = models.ForeignKey(Timesheet, on_delete=models.CASCADE)
+    html = models.TextField(null=True, blank=True)
+
+    @property
+    def utc_end_time(self):
+        return self.utc_start_time + timezone.timedelta(days=1)
+
+    @property
+    def utc_start_time(self):
+        return timezone.datetime.combine(
+            self.date, timezone.datetime.min.time()).astimezone(settings.AS_LOCAL_TIME_ZONE)
+
+    def events(self):
+        return Event.objects.filter(
+            timestamp__range=[self.utc_start_time, self.utc_end_time],
+            source__project=self.timesheet.project
+        ).order_by('timestamp')
+
+    def joined_events_text(self):
+        return '\n'.join(
+            [f'{event.source.source_type} | {event.timestamp}: {event.event_text}' for event in self.events()])
+
+    def generate(self):
+        if not self.events().exists():
+            return print(f'No events found for this day {self.date}')
+        prompt = f"""{self.timesheet.prompt}\n\nEvents:\n{self.joined_events_text()}\n\n
+                Please save using save_html with in the following format:\n\n {self.timesheet.daily_html_format}"""
+
+        @tool
+        def save_html(html: str):
+            """Save the html to the response field"""
+            self.html = html
+            self.save()
+
+        agent = Agent([save_html])
+        response = agent.invoke(prompt)
+        print(response)
 
 
 class Source(models.Model):
