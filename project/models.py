@@ -34,18 +34,11 @@ class Timesheet(models.Model):
     def days(self):
         return utils.DateRangeIterator(self.start_time, self.end_time)
 
-    def generate(self):
+    def generate(self, replace=False):
         for day in self.days:
             timesheet_day, _ = self.timesheetday_set.get_or_create(date=day.date(), timesheet=self)
-            if not timesheet_day.html:
+            if replace or not timesheet_day.html:
                 timesheet_day.generate()
-
-    def save_html_file(self):
-        path = Path('media', 'time_sheets')
-        path.mkdir(parents=True, exist_ok=True)
-        file_name = path / f'{self.project}_{self.start_time.isoformat()}_{self.end_time.isoformat()}.html'
-        with open(file_name, 'w') as file:
-            file.write(self.response)
 
 
 class TimesheetDay(models.Model):
@@ -65,7 +58,7 @@ class TimesheetDay(models.Model):
     def events(self):
         return Event.objects.filter(
             timestamp__range=[self.utc_start_time, self.utc_end_time],
-            source__project=self.timesheet.project
+            source__in=self.timesheet.project.source_set.filter(enabled=True)
         ).order_by('timestamp')
 
     def joined_events_text(self):
@@ -75,8 +68,11 @@ class TimesheetDay(models.Model):
     def generate(self):
         if not self.events().exists():
             return print(f'No events found for this day {self.date}')
-        prompt = f"""{self.timesheet.prompt}\n\nEvents:\n{self.joined_events_text()}\n\n
-                Please save using save_html with in the following format:\n\n {self.timesheet.daily_html_format}"""
+        prompt = f"""{self.timesheet.prompt}\n\n
+        Project description: {self.timesheet.project.description}\n\n
+        Events:\n{self.joined_events_text()}\n\n
+        Please save using save_html with in the following format:\n\n 
+        {self.timesheet.daily_html_format}"""
 
         @tool
         def save_html(html: str):
@@ -85,8 +81,8 @@ class TimesheetDay(models.Model):
             self.save()
 
         agent = Agent([save_html])
-        response = agent.invoke(prompt)
-        print(response)
+        agent.invoke(prompt)
+        print(f'Generated HTML for {self.date}')
 
 
 class Source(models.Model):
@@ -105,6 +101,7 @@ class Source(models.Model):
     base_url = models.URLField(blank=True, null=True)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True)
     last_sync = models.DateTimeField(null=True, blank=True)
+    enabled = models.BooleanField(default=True)
 
     def __str__(self):
         return f'{self.source_type} - {self.project}'
