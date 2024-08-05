@@ -7,6 +7,7 @@ from langchain.agents import create_tool_calling_agent
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, MessagesPlaceholder, \
     HumanMessagePromptTemplate, PromptTemplate
+from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langfuse.callback import CallbackHandler
 from langgraph.prebuilt import create_agent_executor
@@ -26,6 +27,8 @@ class LLM:
         if '3-5-sonnet' in model:
             logger.warning(f'Using US WEST 1 {model} model')
             return ChatBedrock(model_id=model, region_name='us-east-1', model_kwargs={"temperature": 0})
+        if model in ('gemma2:2b', 'llama3.1'):
+            return ChatOllama(base_url='http://192.168.0.184', model=model, model_kwargs={"temperature": 0})
         logger.warning(f'Using AWS bedrock {model} model')
         return ChatBedrock(model_id=model, model_kwargs={"temperature": 0})
 

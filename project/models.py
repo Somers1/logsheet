@@ -18,6 +18,23 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+    def group_event_blocks(self):
+        event_block = EventBlock()
+        for event in Event.objects.filter(source__project=self).order_by('timestamp'):
+            if not event_block.check_add_event(event):
+                event_block.save()
+                event_block = EventBlock()
+
+    def total_seconds(self):
+        return sum(event_block.duration().total_seconds() for event_block in self.eventblock_set.all())
+
+    def total_hours(self):
+        return self.total_seconds() / 3600
+
+    def summarise_missing(self):
+        for event_block in self.eventblock_set.filter(summary__isnull=True).order_by('-start_timestamp'):
+            event_block.summarise()
+
 
 class Timesheet(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
@@ -109,6 +126,7 @@ class Source(models.Model):
     def sync(self):
         importer = get_importer(self)
         importer.sync()
+        print(f'Synced {self.source_type} for {self.project}')
 
 
 class Event(models.Model):
@@ -121,3 +139,64 @@ class Event(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['timestamp', 'source', 'event_text'], name='unique_event')
         ]
+
+
+class EventBlock(models.Model):
+    start_timestamp = models.DateTimeField(null=True)
+    end_timestamp = models.DateTimeField(null=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True)
+    summary = models.TextField(null=True)
+
+    def duration(self):
+        return self.end_timestamp - self.start_timestamp
+
+    @property
+    def task_end_time(self):
+        try:
+            return self.end_timestamp + timezone.timedelta(minutes=settings.TIMESHEET['time_on_task_minutes'])
+        except TypeError:
+            return None
+
+    def add_event(self, event):
+        if not self.start_timestamp:
+            self.start_timestamp = event.timestamp
+        if not self.project:
+            self.project = event.source.project
+        if not self.end_timestamp:
+            self.end_timestamp = event.timestamp + timezone.timedelta(
+                minutes=settings.TIMESHEET['minimum_task_minutes'])
+        else:
+            self.end_timestamp = event.timestamp
+
+    def check_add_event(self, event):
+        if not self.task_end_time or event.timestamp < self.task_end_time:
+            self.add_event(event)
+            return True
+
+    def events(self):
+        return Event.objects.filter(
+            timestamp__range=[self.start_timestamp, self.end_timestamp],
+            source__project=self.project
+        ).order_by('timestamp')
+
+    def joined_events_text(self):
+        return '\n'.join([f'{event.source.source_type}: {event.event_text}' for event in self.events()])
+
+    def summarise(self):
+        prompt = f"""
+        Here are the events that happened during my working session. 
+        Please summarise the events in dot points that will be added to a timesheet and sent to the client.
+        Focus more on what was achieved rather than individual events and make it as concise as possible. 
+        Only reply with the dot points. Do no prefix your response with anything.
+                
+        Use this project description as context for the events: 
+        {self.project.description}
+        
+        Events:
+        {self.joined_events_text()}
+        
+        """
+        self.summary = llm.strong.invoke(prompt).content
+        print(self.joined_events_text())
+        print(self.summary)
+        self.save()
