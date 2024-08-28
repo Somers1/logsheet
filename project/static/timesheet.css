@@ -3,7 +3,7 @@ body {
     font-family: Arial, sans-serif;
     line-height: 1.4;
     color: #e0e0e0;
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
     padding: 15px;
     background-color: #1a1a1a;
@@ -21,7 +21,7 @@ h1, h2 {
     margin-top: 0;
 }
 
-h1 {
+.header-container {
     border-bottom: 2px solid #4a4a4a;
     padding-bottom: 10px;
     margin-bottom: 15px;
@@ -71,29 +71,6 @@ tr:hover {
     background-color: #3a3a3a;
 }
 
-/* Estimated Hours Column */
-td:first-child {
-    width: 120px;
-    font-weight: bold;
-}
-
-/* Tasks Column */
-td:last-child {
-    padding-left: 15px;
-}
-
-td:last-child strong {
-    color: #ffffff;
-    display: block;
-    margin-bottom: 3px;
-}
-
-/* Total Row */
-tr:last-child {
-    font-weight: bold;
-    background-color: #3a3a3a;
-}
-
 /* Responsive Design */
 @media (max-width: 600px) {
     table, tr, td {
@@ -132,6 +109,51 @@ ul {
 hr {
     border: 0;
     height: 1px;
-    background-image: linear-gradient(to right, rgba(74, 74, 74, 0), rgba(74, 74, 74, 0.75), rgba(74, 74, 74, 0));
-    margin: 20px 0;
+    background-image: linear-gradient(to right, rgba(74, 74, 74, 0.1), rgba(74, 74, 74, 0.9), rgba(74, 74, 74, 0.1));
+    margin: 20px 0 ;
+}
+
+
+.w-100 {
+  width: 100%;
+}
+
+.p0 {
+  padding: 0 !important;
+}
+
+.m0 {
+  margin: 0 !important;
+}
+
+.row {
+  flex-direction: row;
+}
+
+.flex {
+  display: flex;
+}
+
+.even {
+  justify-content: space-evenly;
+}
+
+.end {
+  justify-content: flex-end;
+}
+
+.start {
+  justify-content: flex-start;
+}
+
+.around {
+  justify-content: space-around;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.col {
+  flex-direction: column;
 }

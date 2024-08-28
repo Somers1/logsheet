@@ -1,19 +1,25 @@
-from pathlib import Path
-
+import re
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from langchain_core.tools import tool
 
 from project.importers import get_importer
-from .agent import Agent, llm
-import utils
+from .agent import llm
+from .calendar import AzureCalendarExport
+from .harvest import Harvest
+
+
+def strip_before_dash(s):
+    return '- ' + s.split('-', 1)[-1].strip()
 
 
 class Project(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    eraser_embed = models.TextField(null=True, blank=True)
+    monthly_duration = models.DurationField(null=True, blank=True)
+    total_duration = models.DurationField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -31,75 +37,36 @@ class Project(models.Model):
     def total_hours(self):
         return self.total_seconds() / 3600
 
+    def total_time_delta(self):
+        return timezone.timedelta(seconds=self.total_seconds())
+
+    def remaining_duration(self):
+        return self.total_duration - self.total_time_delta()
+
     def summarise_missing(self):
-        for event_block in self.eventblock_set.filter(summary__isnull=True).order_by('-start_timestamp'):
+        filters = models.Q(summary__isnull=True) | ~models.Q(summary__startswith='-')
+        for event_block in self.eventblock_set.filter(filters).order_by('-start_timestamp'):
             event_block.summarise()
 
+    def days_with_events(self):
+        return {event.timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE).date()
+                for event in Event.objects.filter(source__project=self)}
 
-class Timesheet(models.Model):
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-    prompt = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    daily_html_format = models.TextField(null=True, blank=True)
+    def create_days(self):
+        for day in self.days_with_events():
+            ProjectDaySummary.objects.get_or_create(project=self, date=day)
 
-    def __str__(self):
-        return f'{self.project} | {self.start_time} - {self.end_time}'
+    def summarise_days(self):
+        for day in self.projectdaysummary_set.filter(summary__isnull=True).order_by('date'):
+            day.summarise()
 
-    @property
-    def days(self):
-        return utils.DateRangeIterator(self.start_time, self.end_time)
+    def add_all_to_harvest(self):
+        for day in self.projectdaysummary_set.filter(summary__isnull=False).order_by('date'):
+            day.add_to_harvest()
 
-    def generate(self, replace=False):
-        for day in self.days:
-            timesheet_day, _ = self.timesheetday_set.get_or_create(date=day.date(), timesheet=self)
-            if replace or not timesheet_day.html:
-                timesheet_day.generate()
-
-
-class TimesheetDay(models.Model):
-    date = models.DateField()
-    timesheet = models.ForeignKey(Timesheet, on_delete=models.CASCADE)
-    html = models.TextField(null=True, blank=True)
-
-    @property
-    def utc_end_time(self):
-        return self.utc_start_time + timezone.timedelta(days=1)
-
-    @property
-    def utc_start_time(self):
-        return timezone.datetime.combine(
-            self.date, timezone.datetime.min.time()).astimezone(settings.AS_LOCAL_TIME_ZONE)
-
-    def events(self):
-        return Event.objects.filter(
-            timestamp__range=[self.utc_start_time, self.utc_end_time],
-            source__in=self.timesheet.project.source_set.filter(enabled=True)
-        ).order_by('timestamp')
-
-    def joined_events_text(self):
-        return '\n'.join(
-            [f'{event.source.source_type} | {event.timestamp}: {event.event_text}' for event in self.events()])
-
-    def generate(self):
-        if not self.events().exists():
-            return print(f'No events found for this day {self.date}')
-        prompt = f"""{self.timesheet.prompt}\n\n
-        Project description: {self.timesheet.project.description}\n\n
-        Events:\n{self.joined_events_text()}\n\n
-        Please save using save_html with in the following format:\n\n 
-        {self.timesheet.daily_html_format}"""
-
-        @tool
-        def save_html(html: str):
-            """Save the html to the response field"""
-            self.html = html
-            self.save()
-
-        agent = Agent([save_html])
-        agent.invoke(prompt)
-        print(f'Generated HTML for {self.date}')
+    def add_all_to_calendar(self):
+        for event_block in self.eventblock_set.filter(uploaded_to_calendar=False).order_by('-start_timestamp'):
+            event_block.add_to_calendar()
 
 
 class Source(models.Model):
@@ -129,6 +96,37 @@ class Source(models.Model):
         print(f'Synced {self.source_type} for {self.project}')
 
 
+class SourceRule(models.Model):
+    EXACT = 'EXACT'
+    CONTAINS = 'CONTAINS'
+    STARTS_WITH = 'STARTS_WITH'
+    END_WITH = 'END_WITH'
+    REGEX = 'REGEX'
+
+    RULE_TYPE_CHOICES = [
+        (EXACT, EXACT.title()),
+        (CONTAINS, CONTAINS.title()),
+        (STARTS_WITH, STARTS_WITH.title()),
+        (END_WITH, END_WITH.title()),
+        (REGEX, REGEX.title())
+    ]
+    source = models.ForeignKey(Source, on_delete=models.CASCADE, choices=RULE_TYPE_CHOICES)
+    rule_type = models.CharField(max_length=50)
+    rule = models.TextField()
+
+    def check_rule(self, event_text):
+        if self.rule_type == self.EXACT:
+            return self.rule == event_text
+        if self.rule_type == self.CONTAINS:
+            return self.rule in event_text
+        if self.rule_type == self.STARTS_WITH:
+            return event_text.startswith(self.rule)
+        if self.rule_type == self.END_WITH:
+            return event_text.endswith(self.rule)
+        if self.rule_type == self.REGEX:
+            return bool(re.match(self.rule, event_text))
+
+
 class Event(models.Model):
     timestamp = models.DateTimeField()
     source = models.ForeignKey(Source, on_delete=models.CASCADE)
@@ -141,14 +139,86 @@ class Event(models.Model):
         ]
 
 
+class ProjectDaySummary(models.Model):
+    summary = models.TextField(null=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    date = models.DateField()
+    uploaded_to_harvest = models.BooleanField(default=False)
+
+    @property
+    def start_timestamp(self):
+        return timezone.datetime.combine(
+            self.date, timezone.datetime.min.time()).astimezone(settings.AS_LOCAL_TIME_ZONE)
+
+    @property
+    def end_timestamp(self):
+        return timezone.datetime.combine(
+            self.date, timezone.datetime.max.time()).astimezone(settings.AS_LOCAL_TIME_ZONE)
+
+    def event_blocks(self):
+        return EventBlock.objects.filter(
+            start_timestamp__range=[self.start_timestamp, self.end_timestamp],
+            project=self.project
+        ).order_by('start_timestamp')
+
+    def total_hours(self):
+        return sum(block.duration().total_seconds() for block in self.event_blocks()) / 3600
+
+    def events(self):
+        return Event.objects.filter(
+            timestamp__range=[self.start_timestamp, self.end_timestamp],
+            source__project=self.project
+        ).order_by('timestamp')
+
+    def joined_events_text(self):
+        return '\n'.join([f'Source {event.source.source_type}: {event.event_text}' for event in self.events()])
+
+    def summarise(self):
+        prompt = f"""
+        Here are the events that happened during my working session. 
+        Please summarise what was done in a couple concise dot points.
+        Do not use emails as events. Only use them as context. Do not print the source.
+        Only reply with the dot points. Do no prefix your response with anything.
+
+        Use this project description as context for the events: 
+        {self.project.description}
+
+        Events:
+        {self.joined_events_text()}
+
+        """
+        self.summary = strip_before_dash(llm.strong.invoke(prompt).content)
+        print(self.summary + '\n' + '-' * 50)
+        self.save()
+
+    def add_to_harvest(self):
+        Harvest().post_project_day(self)
+        self.uploaded_to_harvest = True
+        self.save()
+        print(f'Added to {self} harvest')
+
+
 class EventBlock(models.Model):
     start_timestamp = models.DateTimeField(null=True)
     end_timestamp = models.DateTimeField(null=True)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True)
     summary = models.TextField(null=True)
+    uploaded_to_calendar = models.BooleanField(default=False)
+
+    @property
+    def tz_start_timestamp(self):
+        return self.start_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE)
+
+    @property
+    def tz_end_timestamp(self):
+        return self.end_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE)
 
     def duration(self):
         return self.end_timestamp - self.start_timestamp
+
+    def __str__(self):
+        return f'{self.project} - {self.start_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE)} to' \
+               f' {self.end_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE)}'
 
     @property
     def task_end_time(self):
@@ -186,8 +256,10 @@ class EventBlock(models.Model):
         prompt = f"""
         Here are the events that happened during my working session. 
         Please summarise the events in dot points that will be added to a timesheet and sent to the client.
-        Focus more on what was achieved rather than individual events and make it as concise as possible. 
+        Focus more on what was achieved rather than individual events. 
+        Do not use emails as events. Only use them as context.
         Only reply with the dot points. Do no prefix your response with anything.
+        Please make it as concise as you possible can only including the really important information.
                 
         Use this project description as context for the events: 
         {self.project.description}
@@ -196,7 +268,12 @@ class EventBlock(models.Model):
         {self.joined_events_text()}
         
         """
-        self.summary = llm.strong.invoke(prompt).content
-        print(self.joined_events_text())
-        print(self.summary)
+        self.summary = strip_before_dash(llm.strong.invoke(prompt).content)
+        print(self.summary + '\n' + '-' * 50)
         self.save()
+
+    def add_to_calendar(self):
+        AzureCalendarExport().add_event_block(self)
+        self.uploaded_to_calendar = True
+        self.save()
+        print(f'Added to {self} calendar')

@@ -25,11 +25,12 @@ class BaseImporter(ABC):
         self.update_last_sync()
 
     def save_event(self, event_text: str, timestamp: datetime):
-        self.batch.append(self.source.event_set.model(
-            source=self.source,
-            event_text=event_text,
-            timestamp=timestamp
-        ))
+        if any(rule.check_rule(event_text) for rule in self.source.sourcerule_set.all()):
+            self.batch.append(self.source.event_set.model(
+                source=self.source,
+                event_text=event_text,
+                timestamp=timestamp
+            ))
 
     def update_last_sync(self):
         self.source.last_sync = timezone.now()

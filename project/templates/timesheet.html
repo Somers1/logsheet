@@ -4,28 +4,206 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/static/timesheet.css">
-    <title>{% block title %}Timesheet for {{ timesheet.project.name }}{% endblock %}</title>
+    <title>{% block title %}Timesheet for {{ project.name }}{% endblock %}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th {
+            font-weight: bold !important;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .date-header {
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            margin-top: 20px;
+        }
+
+        .time-col {
+            width: 100px;
+            white-space: nowrap;
+        }
+
+        .duration-col {
+            width: 120px;
+        }
+
+        .summary-col {
+            width: auto;
+        }
+
+        .total-row {
+            font-weight: bold;
+        }
+
+        .overall-stats {
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.9);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
 <div class="container">
-    <h1>Timesheet for {{ timesheet.project.name }}</h1>
-    <div class="timesheet-header">
-        <p><strong>Start Time:</strong> {{ timesheet.start_time|date:"d/m/Y" }}</p>
-        <p><strong>End Time:</strong> {{ timesheet.end_time|date:"d/m/Y" }}</p>
+    <div class="header-container" style="display: flex;align-items: center;justify-content: space-between">
+        <h1 style="margin: 0">Timesheet for {{ project.name }}</h1>
+        <h2 style="margin: 0">{{ month }}</h2>
     </div>
-    {% with timesheet_days=timesheet.timesheetday_set.filter %}
-        {% for day in timesheet_days|dictsort:"date" %}
-            {% if day.html %}
-                <h2>{{ day.date|date:"F d, Y" }}</h2>
-                {% autoescape off %}
-                    {{ day.html }}
-                {% endautoescape %}
-                <hr>
-            {% endif %}
-        {% empty %}
-            <p>No timesheet days available.</p>
-        {% endfor %}
-    {% endwith %}
+    {#    <div class="timesheet-header">#}
+    {#        <p><strong>Start Date:</strong> {{ start_date|date:"F d, Y" }}</p>#}
+    {#        <p><strong>End Date:</strong> {{ end_date|date:"F d, Y" }}</p>#}
+    {#    </div>#}
+    {% if project.eraser_embed %}
+        <h2 style="margin-top: 0">Overall Statistics</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Hours For Period</th>
+                <th>Total Time</th>
+                <th>Project Budget</th>
+                <th>Remaining Hours</th>
+            </tr>
+            </thead>
+            <tr>
+                <td class="time-col">{{ month_duration }}</td>
+                <td class="time-col">{{ total_duration }}</td>
+                <td class="time-col">{{ total_budget }}</td>
+                <td class="time-col">{{ remaining_hours }}</td>
+            </tr>
+        </table>
+        <hr>
+        <h2>Progress Diagram</h2>
+        <img style="width: 100%; cursor: pointer;" src="{{ project.eraser_embed }}" alt="Clickable image"
+             onclick="openModal(this.src)">
+
+        <div id="imageModal" class="modal">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <img class="modal-content" id="modalImage">
+        </div>
+
+        <script>
+            function openModal(imgSrc) {
+                var modal = document.getElementById("imageModal");
+                var modalImg = document.getElementById("modalImage");
+                modal.style.display = "flex";
+                modalImg.src = imgSrc;
+            }
+
+            function closeModal() {
+                var modal = document.getElementById("imageModal");
+                modal.style.display = "none";
+            }
+
+            window.onclick = function (event) {
+                var modal = document.getElementById("imageModal");
+                if (event.target == modal) {
+                    closeModal();
+                }
+            }
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === "Escape") {
+                    closeModal();
+                }
+            });
+        </script>
+    {% endif %}
+
+    <hr>
+    <h2>Detailed Timesheet</h2>
+
+    {% for date, day_data in event_blocks_by_date.items %}
+        <div class="date-header">{{ date|date:"l, F d, Y" }}</div>
+        <table>
+            <thead>
+            <tr>
+                <th class="time-col">Start Time</th>
+                <th class="time-col">End Time</th>
+                <th class="duration-col">Duration</th>
+                <th class="summary-col">Summary</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for event in day_data.events %}
+                <tr>
+                    <td class="time-col">{{ event.start_timestamp|date:"g:i A" }}</td>
+                    <td class="time-col">{{ event.end_timestamp|date:"g:i A" }}</td>
+                    <td class="duration-col">
+                        {% with duration=event.end_timestamp|timeuntil:event.start_timestamp %}
+                            {{ duration }}
+                        {% endwith %}
+                    </td>
+                    <td class="summary-col">
+                        <ul style="padding: 1rem">
+                            {% for item in event.summary %}
+                                {% if item %}
+                                    <li>{{ item }}</li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="2" class="time-col">Daily Total</td>
+                <td class="duration-col">{{ day_data.total_duration }}</td>
+                <td class="summary-col"></td>
+            </tr>
+            </tbody>
+        </table>
+    {% empty %}
+        <p>No event blocks available.</p>
+    {% endfor %}
 </div>
 </body>
 </html>
