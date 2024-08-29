@@ -6,20 +6,29 @@ from django.utils import timezone
 from project.importers import get_importer
 from .agent import llm
 from .calendar import AzureCalendarExport
-from .harvest import Harvest
 
 
 def strip_before_dash(s):
     return '- ' + s.split('-', 1)[-1].strip()
 
 
+class Client(models.Model):
+    name = models.CharField(max_length=255)
+    harvest_id = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Project(models.Model):
     name = models.CharField(max_length=255)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     eraser_embed = models.TextField(null=True, blank=True)
     monthly_duration = models.DurationField(null=True, blank=True)
     total_duration = models.DurationField(null=True, blank=True)
+    harvest_id = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -38,7 +47,7 @@ class Project(models.Model):
         return self.total_seconds() / 3600
 
     def total_time_delta(self):
-        return timezone.timedelta(seconds=self.total_seconds())
+        return self.timeentry_set.aggregate(models.Sum('hours'))['hours__sum']
 
     def remaining_duration(self):
         return self.total_duration - self.total_time_delta()
@@ -67,6 +76,17 @@ class Project(models.Model):
     def add_all_to_calendar(self):
         for event_block in self.eventblock_set.filter(uploaded_to_calendar=False).order_by('-start_timestamp'):
             event_block.add_to_calendar()
+
+
+class TimeEntry(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    date = models.DateField()
+    hours = models.DurationField()
+    notes = models.TextField(null=True, blank=True)
+    harvest_id = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return f"{self.project} - {self.date} - {self.duration}"
 
 
 class Source(models.Model):
@@ -192,10 +212,16 @@ class ProjectDaySummary(models.Model):
         self.save()
 
     def add_to_harvest(self):
-        Harvest().post_project_day(self)
-        self.uploaded_to_harvest = True
-        self.save()
+        # Harvest().post_project_day(self)
+        # self.uploaded_to_harvest = True
+        # self.save()
         print(f'Added to {self} harvest')
+
+
+class DurationBlock(models.Model):
+    duration = models.DurationField()
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True)
+    summary = models.TextField(null=True)
 
 
 class EventBlock(models.Model):

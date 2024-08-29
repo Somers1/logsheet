@@ -14,7 +14,7 @@ class ProjectTimesheetListView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.kwargs['month'] == 'all':
-            context['event_blocks'] = context['project'].eventblock_set.all().order_by('-start_timestamp')
+            context['event_blocks'] = context['project'].timeentry_set.all().order_by('-date')
             context['month'] = 'All'
         else:
             if self.kwargs['month'] == 'current':
@@ -23,23 +23,21 @@ class ProjectTimesheetListView(DetailView):
                 start_date = timezone.datetime.strptime(
                     self.kwargs['month'], '%Y-%m').astimezone(settings.AS_LOCAL_TIME_ZONE)
             context['month'] = start_date.strftime('%B %Y')
-            context['event_blocks'] = context['project'].eventblock_set.filter(
-                start_timestamp__month=start_date.month).order_by('-start_timestamp')
+            context['event_blocks'] = context['project'].timeentry_set.filter(
+                date__month=start_date.month).order_by('-date')
 
-        context['start_date'] = context['event_blocks'].aggregate(Min('start_timestamp'))['start_timestamp__min']
-        context['end_date'] = context['event_blocks'].aggregate(Max('end_timestamp'))['end_timestamp__max']
+        context['start_date'] = context['event_blocks'].aggregate(Min('date'))['date__min']
+        context['end_date'] = context['event_blocks'].aggregate(Max('date'))['date__max']
 
         event_blocks_by_date = defaultdict(lambda: {'events': [], 'total_duration': timedelta()})
         total_duration = timedelta()
 
         for event in context['event_blocks']:
-            date = event.start_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE).date()
-            duration = event.end_timestamp - event.start_timestamp
+            date = event.date
+            duration = event.hours
             event_blocks_by_date[date]['events'].append({
-                'start_timestamp': event.start_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE),
-                'end_timestamp': event.end_timestamp.astimezone(settings.AS_LOCAL_TIME_ZONE),
                 'duration': self.format_duration(duration),
-                'summary': [part.strip() for part in event.summary.split('- ') if part.strip()]
+                'summary': [part.strip() for part in event.notes.split('- ') if part.strip()]
             })
             event_blocks_by_date[date]['total_duration'] += duration
             total_duration += duration
