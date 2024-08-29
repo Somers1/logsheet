@@ -28,6 +28,7 @@ class Project(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     eraser_embed = models.TextField(null=True, blank=True)
     monthly_duration = models.DurationField(null=True, blank=True)
+    project_start_date = models.DateField(null=True, blank=True)
     total_duration = models.DurationField(null=True, blank=True)
     harvest_id = models.CharField(max_length=255, null=True, blank=True)
 

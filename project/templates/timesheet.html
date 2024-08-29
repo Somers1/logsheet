@@ -22,7 +22,7 @@
         <div class="select-wrapper">
             <label for="monthSelect">Select Month</label>
             <select id="monthSelect">
-                <option value="all" {% if month == 'All Time' %}selected{% endif %}>All Time</option>
+{#                <option value="all" {% if month == 'All Time' %}selected{% endif %}>All Time</option>#}
                 {% for project_month in project_months %}
                     <option value="{{ project_month|date:'Y-m' }}"
                             {% if project_month|date:'F Y' == month %}selected{% endif %}>
