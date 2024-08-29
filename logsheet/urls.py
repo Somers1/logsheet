@@ -5,6 +5,7 @@ from project import views
 
 urlpatterns = [
     path('timesheet/<int:pk>/<str:month>', views.ProjectTimesheetListView.as_view(), name='timesheet'),
+
 ]
 
 if not settings.UNCHAINED:

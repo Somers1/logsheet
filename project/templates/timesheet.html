@@ -7,18 +7,58 @@
     <title>{% block title %}Timesheet for {{ project.name }}{% endblock %}</title>
 </head>
 <body>
+<div class="select-container">
+    <div class="select-wrapper">
+        <label for="projectSelect">Select Project:</label>
+        <select id="projectSelect">
+            <option value="{{ project.id }}" selected>{{ project.name }}</option>
+            {% for other_project in other_projects %}
+                <option value="{{ other_project.id }}">{{ other_project.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="select-wrapper">
+        <label for="monthSelect">Select Month:</label>
+        <select id="monthSelect">
+            <option value="all" {% if month == 'All Time' %}selected{% endif %}>All Time</option>
+            {% for project_month in project_months %}
+                <option value="{{ project_month|date:'Y-m' }}"
+                        {% if project_month|date:'F Y' == month %}selected{% endif %}>
+                    {{ project_month|date:"F Y" }}
+                </option>
+            {% endfor %}
+
+        </select>
+    </div>
+</div>
 <div class="container">
 
     <table>
-            <td style="background-color: white!important;"><img src="/static/logo-transparent.png" style="width: 200px;opacity: 0.75"></td>
-            <td style="background-color: white!important;"><h1 style="margin: 0">Timesheet for {{ project.name }}</h1></td>
-            <td style="background-color: white!important;"><h2 style="margin: 0">{{ month }}</h2></td>
+        <td style="background-color: white!important;"><img src="/static/logo-transparent.png"
+                                                            style="width: 200px;opacity: 0.75"></td>
+        <td style="background-color: white!important;"><h1 style="margin: 0">Timesheet for {{ project.name }}</h1></td>
+        <td style="background-color: white!important;"><h2 style="margin: 0">{{ month }}</h2></td>
     </table>
-    {#    <div class="timesheet-header">#}
-    {#        <p><strong>Start Date:</strong> {{ start_date|date:"F d, Y" }}</p>#}
-    {#        <p><strong>End Date:</strong> {{ end_date|date:"F d, Y" }}</p>#}
-    {#    </div>#}
-    <h2 style="margin-top: 0">Overall</h2>
+
+    <script>
+        document.getElementById('monthSelect').addEventListener('change', function () {
+            const selectedMonth = this.value;
+            if (selectedMonth) {
+                const currentPath = window.location.pathname;
+                const newPath = currentPath.split('/').slice(0, -1).concat(selectedMonth).join('/');
+                window.location.href = newPath;
+            }
+        });
+
+        document.getElementById('projectSelect').addEventListener('change', function () {
+            const selectedProject = this.value;
+            if (selectedProject) {
+                window.location.href = `/timesheet/${selectedProject}/current`;
+            }
+        });
+    </script>
+
+    <h2>Overall Hours</h2>
     <table>
         <thead>
         <tr>

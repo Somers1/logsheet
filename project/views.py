@@ -1,9 +1,12 @@
+from io import BytesIO
+
 from django.conf import settings
 from django.utils import timezone
 from django.views.generic import ListView, DetailView
 from django.db.models import Min, Max
 from datetime import timedelta
 from collections import defaultdict
+
 from project import models
 
 
@@ -15,7 +18,7 @@ class ProjectTimesheetListView(DetailView):
         context = super().get_context_data(**kwargs)
         if self.kwargs['month'] == 'all':
             context['event_blocks'] = context['project'].timeentry_set.all().order_by('-date')
-            context['month'] = 'All'
+            context['month'] = 'All Time'
         else:
             if self.kwargs['month'] == 'current':
                 start_date = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE)
@@ -60,7 +63,8 @@ class ProjectTimesheetListView(DetailView):
             context['total_duration'] = self.format_duration(context['project'].total_time_delta())
             context['total_budget'] = self.format_duration(context['project'].total_duration)
             context['remaining_hours'] = self.format_duration(context['project'].remaining_duration())
-
+        context['project_months'] = context['project'].timeentry_set.dates('date', 'month', order='DESC')
+        context['other_projects'] = models.Project.objects.exclude(pk=context['project'].pk)
         return context
 
     def format_duration(self, duration):

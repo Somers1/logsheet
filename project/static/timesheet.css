@@ -3,10 +3,35 @@ body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
     color: #333333;
-    max-width: 1000px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 20px;
+    font-size: 17px;
     background-color: #f0f0f0;
+}
+
+.select-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.select-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 48%;
+}
+
+label {
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 16px;
 }
 
 .container {
@@ -14,6 +39,11 @@ body {
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    font-size: 1.8em;
+
 }
 
 h1, h2 {
@@ -70,7 +100,6 @@ th {
     background-color: #4a4a4a;
     color: white;
     font-weight: bold;
-    text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
@@ -82,9 +111,10 @@ tr:nth-child(even) {
     background-color: #f5f5f5;
 }
 
-tr{
+tr {
     background-color: #f3f3f3;
 }
+
 tr:hover {
     background-color: #e5e5e5;
     transition: background-color 0.3s ease;
@@ -138,18 +168,53 @@ hr {
 }
 
 /* Utility Classes */
-.w-100 { width: 100%; }
-.p0 { padding: 0 !important; }
-.m0 { margin: 0 !important; }
-.flex { display: flex; }
-.row { flex-direction: row; }
-.col { flex-direction: column; }
-.even { justify-content: space-evenly; }
-.end { justify-content: flex-end; }
-.start { justify-content: flex-start; }
-.around { justify-content: space-around; }
-.between { justify-content: space-between; }
-.align-end { align-items: flex-end; }
+.w-100 {
+    width: 100%;
+}
+
+.p0 {
+    padding: 0 !important;
+}
+
+.m0 {
+    margin: 0 !important;
+}
+
+.flex {
+    display: flex;
+}
+
+.row {
+    flex-direction: row;
+}
+
+.col {
+    flex-direction: column;
+}
+
+.even {
+    justify-content: space-evenly;
+}
+
+.end {
+    justify-content: flex-end;
+}
+
+.start {
+    justify-content: flex-start;
+}
+
+.around {
+    justify-content: space-around;
+}
+
+.between {
+    justify-content: space-between;
+}
+
+.align-end {
+    align-items: flex-end;
+}
 
 /* Additional Styles */
 .date-header {
@@ -163,6 +228,7 @@ hr {
 .time-col {
     width: 120px;
     white-space: nowrap;
+    font-weight: bold;
 }
 
 .summary-col {
