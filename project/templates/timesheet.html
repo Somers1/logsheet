@@ -8,8 +8,9 @@
 </head>
 <body>
 <div class="flex align-end between w-100">
+
     <h2 style="padding-left: 1rem">{{ greeting }}, {{ project.client.name }}</h2>
-    <div class="flex end" style="width: 50%;min-width: 400px">
+    <div class="flex end align-end" style="width: 50%;min-width: 400px">
         <div class="select-wrapper">
             <label for="projectSelect">Select Project</label>
             <select id="projectSelect">
@@ -22,7 +23,7 @@
         <div class="select-wrapper">
             <label for="monthSelect">Select Month</label>
             <select id="monthSelect">
-{#                <option value="all" {% if month == 'All Time' %}selected{% endif %}>All Time</option>#}
+                {#                <option value="all" {% if month == 'All Time' %}selected{% endif %}>All Time</option>#}
                 {% for project_month in project_months %}
                     <option value="{{ project_month|date:'Y-m' }}"
                             {% if project_month|date:'F Y' == month %}selected{% endif %}>
@@ -30,7 +31,12 @@
                     </option>
                 {% endfor %}
             </select>
+
         </div>
+        <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="logout-button">Logout</button>
+        </form>
     </div>
 </div>
 <div class="container">
