@@ -64,7 +64,7 @@ class Harvest:
         self.get_clients()
         self.get_projects()
         end_date = timezone.now().date()
-        start_date = end_date - timezone.timedelta(days=180)  # Sync last 30 days
+        start_date = end_date - timezone.timedelta(days=30)  # Sync last 30 days
         self.get_time_entries(start_date, end_date)
 
     def post_time_entry(self, time_entry):

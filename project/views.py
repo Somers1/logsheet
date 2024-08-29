@@ -1,9 +1,8 @@
 import random
-from io import BytesIO
-
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
-from django.views.generic import ListView, DetailView
+from django.views.generic import DetailView
 from django.db.models import Min, Max
 from datetime import timedelta
 from collections import defaultdict
@@ -11,9 +10,17 @@ from collections import defaultdict
 from project import models
 
 
-class ProjectTimesheetListView(DetailView):
+class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
     model = models.Project
+    login_url = '/login/'
+    redirect_field_name = 'next'
     template_name = 'timesheet.html'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.is_superuser:
+            return queryset
+        return queryset.filter(client__user=self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
