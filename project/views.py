@@ -1,3 +1,4 @@
+import random
 from io import BytesIO
 
 from django.conf import settings
@@ -65,6 +66,7 @@ class ProjectTimesheetListView(DetailView):
             context['remaining_hours'] = self.format_duration(context['project'].remaining_duration())
         context['project_months'] = context['project'].timeentry_set.dates('date', 'month', order='DESC')
         context['other_projects'] = models.Project.objects.exclude(pk=context['project'].pk)
+        context['greeting'] = self.get_greeting()
         return context
 
     def format_duration(self, duration):
@@ -75,3 +77,21 @@ class ProjectTimesheetListView(DetailView):
         elif hours:
             return f"{hours} hr"
         return f"{minutes} min"
+
+    def get_greeting(self):
+        greetings = [
+            "Hello", "Welcome", "Salutations", "Hi"
+        ]
+
+        time_based_greetings = {
+            "morning": ["Good Morning", "Guten Morgen"],
+            "afternoon": ["Good Afternoon", "Guten Tag"]
+        }
+        current_hour = timezone.now().hour
+
+        if 5 <= current_hour < 12:
+            greetings.extend(time_based_greetings["morning"])
+        elif 12 <= current_hour < 17:
+            greetings.extend(time_based_greetings["afternoon"])
+
+        return random.choice(greetings)

@@ -14,6 +14,7 @@ def strip_before_dash(s):
 
 class Client(models.Model):
     name = models.CharField(max_length=255)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     harvest_id = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
