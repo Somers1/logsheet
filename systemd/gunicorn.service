@@ -1,0 +1,13 @@
+[Unit]
+Description=logsheet gunicorn daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/www/logsheet
+ExecStart=/srv/www/logsheet/venv/bin/gunicorn logsheet.wsgi:application --bind unix:/srv/www/logsheet/logsheet.sock --worker-class gthread --workers 1 --threads 4 --timeout 300 --keep-alive 2
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
