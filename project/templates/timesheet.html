@@ -14,9 +14,10 @@
         <div class="select-wrapper">
             <label for="projectSelect">Select Project</label>
             <select id="projectSelect">
-                <option value="{{ project.id }}" selected>{{ project.name }}</option>
-                {% for other_project in other_projects %}
-                    <option value="{{ other_project.id }}">{{ other_project.name }}</option>
+                {% for other_project in projects %}
+                    <option value="{{ other_project.id }}" {% if other_project.id == project.id %}selected{% endif %}>
+                        {{ other_project.name }}
+                    </option>
                 {% endfor %}
             </select>
         </div>

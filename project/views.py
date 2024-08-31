@@ -74,7 +74,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             context['total_budget'] = self.format_duration(context['project'].total_duration)
             context['remaining_hours'] = self.format_duration(context['project'].remaining_duration())
         context['project_months'] = context['project'].timeentry_set.dates('date', 'month', order='DESC')
-        context['other_projects'] = models.Project.objects.exclude(pk=context['project'].pk)
+        context['projects'] = self.get_object().client.project_set.all()
         context['greeting'] = self.get_greeting()
         return context
 
@@ -102,7 +102,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             "morning": ["Good Morning", "Guten Morgen"],
             "afternoon": ["Good Afternoon", "Guten Tag"]
         }
-        current_hour = timezone.now().hour
+        current_hour = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE).hour
 
         if 5 <= current_hour < 12:
             greetings.extend(time_based_greetings["morning"])
