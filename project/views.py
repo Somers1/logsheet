@@ -42,12 +42,12 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
 
         event_blocks_by_date = defaultdict(lambda: {'events': [], 'total_duration': timedelta()})
         total_duration = timedelta()
-        context['total_billable'] = timedelta()
+        total_billable = timedelta()
         for event in context['event_blocks']:
             date = event.date
             duration = event.hours
             if event.billable:
-                context['total_billable'] += duration
+                total_billable += duration
             event_blocks_by_date[date]['events'].append({
                 'duration': self.format_duration(duration),
                 'summary': [part.strip() for part in event.notes.split('- ') if part.strip()],
@@ -55,7 +55,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             })
             event_blocks_by_date[date]['total_duration'] += duration
             total_duration += duration
-        context['total_billable'] = self.format_duration(context['total_billable'])
+        context['total_billable'] = self.format_duration(total_billable)
         for date, day_data in event_blocks_by_date.items():
             day_data['total_duration'] = self.format_duration(day_data['total_duration'])
 
@@ -70,7 +70,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             if start_date.date() >= context['project'].project_start_date:
                 budget = context['project'].monthly_duration
             context['total_budget'] = self.format_duration(budget)
-            context['remaining_hours'] = self.format_duration(budget - total_duration)
+            context['remaining_hours'] = self.format_duration(budget - total_billable)
         if context['project'].total_duration:
             context['month_duration'] = self.format_duration(total_duration)
             context['total_duration'] = self.format_duration(context['project'].total_time_delta())
