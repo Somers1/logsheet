@@ -42,17 +42,20 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
 
         event_blocks_by_date = defaultdict(lambda: {'events': [], 'total_duration': timedelta()})
         total_duration = timedelta()
-
+        context['total_billable'] = timedelta()
         for event in context['event_blocks']:
             date = event.date
             duration = event.hours
+            if event.billable:
+                context['total_billable'] += duration
             event_blocks_by_date[date]['events'].append({
                 'duration': self.format_duration(duration),
-                'summary': [part.strip() for part in event.notes.split('- ') if part.strip()]
+                'summary': [part.strip() for part in event.notes.split('- ') if part.strip()],
+                'billable': event.billable
             })
             event_blocks_by_date[date]['total_duration'] += duration
             total_duration += duration
-
+        context['total_billable'] = self.format_duration(context['total_billable'])
         for date, day_data in event_blocks_by_date.items():
             day_data['total_duration'] = self.format_duration(day_data['total_duration'])
 
@@ -64,7 +67,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             context['month_duration'] = self.format_duration(total_duration)
             context['total_duration'] = self.format_duration(total_duration)
             budget = timezone.timedelta(hours=0)
-            if start_date.date() > context['project'].project_start_date:
+            if start_date.date() >= context['project'].project_start_date:
                 budget = context['project'].monthly_duration
             context['total_budget'] = self.format_duration(budget)
             context['remaining_hours'] = self.format_duration(budget - total_duration)
@@ -73,7 +76,10 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             context['total_duration'] = self.format_duration(context['project'].total_time_delta())
             context['total_budget'] = self.format_duration(context['project'].total_duration)
             context['remaining_hours'] = self.format_duration(context['project'].remaining_duration())
-        context['project_months'] = context['project'].timeentry_set.dates('date', 'month', order='DESC')
+        context['project_months'] = list(context['project'].timeentry_set.dates('date', 'month', order='DESC'))
+        month_start = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE).replace(day=1).date()
+        if month_start not in context['project_months']:
+            context['project_months'] = [month_start] + context['project_months']
         context['projects'] = self.get_object().client.project_set.all()
         context['greeting'] = self.get_greeting()
         return context

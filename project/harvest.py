@@ -56,7 +56,8 @@ class Harvest:
                     'project': project,
                     'date': entry_data['spent_date'],
                     'hours': timezone.timedelta(hours=entry_data['hours']),
-                    'notes': entry_data['notes']
+                    'notes': entry_data['notes'],
+                    'billable': entry_data['billable']
                 }
             )
 

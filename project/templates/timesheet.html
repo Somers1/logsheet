@@ -75,6 +75,7 @@
             <th>Total Time Spent</th>
             <th>Project Budget</th>
             <th>Remaining Hours</th>
+            <th>Billable Hours</th>
         </tr>
         </thead>
         <tr>
@@ -82,6 +83,7 @@
             <td class="time-col">{{ total_duration }}</td>
             <td class="time-col">{{ total_budget }}</td>
             <td class="time-col">{{ remaining_hours }}</td>
+            <td class="time-col">{{ total_billable }}</td>
         </tr>
     </table>
     <hr>
@@ -135,6 +137,7 @@
             <tr>
                 <th class="duration-col">Duration</th>
                 <th class="summary-col">Summary</th>
+                <th class="summary-col" style="text-align: center">Billable</th>
             </tr>
             </thead>
             <tbody>
@@ -152,11 +155,20 @@
                             {% endfor %}
                         </ul>
                     </td>
+                    <td style="text-align: center">
+                        {% if event.billable %}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"
+                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        {% endif %}
+                    </td>
                 </tr>
             {% endfor %}
             <tr class="total-row">
                 <td class="time-col">Daily Total</td>
-                <td class="duration-col">{{ day_data.total_duration }}</td>
+                <td class="duration-col" colspan="2">{{ day_data.total_duration }}</td>
             </tr>
             </tbody>
         </table>
