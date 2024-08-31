@@ -72,18 +72,28 @@
         <thead>
         <tr>
             <th>Hours For Period</th>
-            <th>Total Time Spent</th>
+            <th>Billable Hours</th>
+            {% if total_duration %}
+                <th>Total Time Spent</th>
+            {% endif %}
+            {% if carried_over %}
+                <th>Carryover Hours</th>
+            {% endif %}
             <th>Project Budget</th>
             <th>Remaining Hours</th>
-            <th>Billable Hours</th>
         </tr>
         </thead>
         <tr>
             <td class="time-col">{{ month_duration }}</td>
-            <td class="time-col">{{ total_duration }}</td>
+            <td class="time-col">{{ total_billable }}</td>
+            {% if total_duration %}
+                <td class="time-col">{{ total_duration }}</td>
+            {% endif %}
+            {% if carried_over %}
+                <td class="time-col">{{ carried_over }}</td>
+            {% endif %}
             <td class="time-col">{{ total_budget }}</td>
             <td class="time-col">{{ remaining_hours }}</td>
-            <td class="time-col">{{ total_billable }}</td>
         </tr>
     </table>
     <hr>

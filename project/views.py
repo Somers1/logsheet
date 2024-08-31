@@ -34,8 +34,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             start_date = timezone.datetime.strptime(
                 self.kwargs['month'], '%Y-%m').astimezone(settings.AS_LOCAL_TIME_ZONE)
         context['month'] = start_date.strftime('%B %Y')
-        context['event_blocks'] = context['project'].timeentry_set.filter(
-            date__month=start_date.month).order_by('-date')
+        context['event_blocks'] = context['project'].events_in_month(start_date.month)
 
         context['start_date'] = context['event_blocks'].aggregate(Min('date'))['date__min']
         context['end_date'] = context['event_blocks'].aggregate(Max('date'))['date__max']
@@ -60,26 +59,30 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             day_data['total_duration'] = self.format_duration(day_data['total_duration'])
 
         context['event_blocks_by_date'] = dict(event_blocks_by_date)
-        context['total_duration'] = self.format_duration(total_duration)
 
+        current_month_start = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE).replace(day=1).date()
+        month_start = start_date.replace(day=1).date()
         context['remaining_hours'] = None
         if context['project'].monthly_duration:
             context['month_duration'] = self.format_duration(total_duration)
-            context['total_duration'] = self.format_duration(total_duration)
+            carryover_hours = context['project'].carried_over_duration(month_start)
+            context['carried_over'] = self.format_duration(carryover_hours)
+            # context['total_duration'] = self.format_duration(total_duration)
             budget = timezone.timedelta(hours=0)
             if start_date.date() >= context['project'].project_start_date:
                 budget = context['project'].monthly_duration
             context['total_budget'] = self.format_duration(budget)
-            context['remaining_hours'] = self.format_duration(budget - total_billable)
+            context['remaining_hours'] = self.format_duration(budget - total_billable - carryover_hours)
         if context['project'].total_duration:
             context['month_duration'] = self.format_duration(total_duration)
-            context['total_duration'] = self.format_duration(context['project'].total_time_delta())
+            total_before_time = context['project'].duration_before_time(month_start)
+            total_with_time = total_before_time + total_duration
+            context['total_duration'] = self.format_duration(total_with_time)
             context['total_budget'] = self.format_duration(context['project'].total_duration)
-            context['remaining_hours'] = self.format_duration(context['project'].remaining_duration())
+            context['remaining_hours'] = self.format_duration(context['project'].total_duration - total_with_time)
         context['project_months'] = list(context['project'].timeentry_set.dates('date', 'month', order='DESC'))
-        month_start = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE).replace(day=1).date()
-        if month_start not in context['project_months']:
-            context['project_months'] = [month_start] + context['project_months']
+        if current_month_start not in context['project_months']:
+            context['project_months'] = [current_month_start] + context['project_months']
         context['projects'] = self.get_object().client.project_set.all()
         context['greeting'] = self.get_greeting()
         return context

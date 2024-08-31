@@ -1,4 +1,6 @@
 import re
+
+from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -47,6 +49,24 @@ class Project(models.Model):
 
     def total_hours(self):
         return self.total_seconds() / 3600
+
+    def carried_over_duration(self, month_start):
+        start_date = self.project_start_date
+        months_since_start = 0
+        while start_date < month_start:
+            if start_date.day == 1:
+                months_since_start += 1
+            start_date += relativedelta(days=1)
+        return self.duration_before_time(month_start) - (self.monthly_duration * months_since_start)
+
+    def duration_before_time(self, timestamp):
+        return self.timeentry_set.filter(date__lt=timestamp).aggregate(models.Sum('hours'))['hours__sum'] or timezone.timedelta()
+
+    def time_in_month(self, month):
+        return self.events_in_month(month).aggregate(models.Sum('hours'))['hours__sum']
+
+    def events_in_month(self, month):
+        return self.timeentry_set.filter(date__month=month).order_by('-date')
 
     def total_time_delta(self):
         return self.timeentry_set.aggregate(models.Sum('hours'))['hours__sum']
