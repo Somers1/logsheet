@@ -7,7 +7,6 @@ from django.utils import timezone
 from project.models import Client, Project, TimeEntry
 
 
-
 class Harvest:
     @cached_property
     def requester(self):
@@ -61,11 +60,11 @@ class Harvest:
                 }
             )
 
-    def sync_all_data(self):
+    def sync_all_data(self, days=30):
         self.get_clients()
         self.get_projects()
         end_date = timezone.now().date()
-        start_date = end_date - timezone.timedelta(days=30)
+        start_date = end_date - timezone.timedelta(days=days)
         self.get_time_entries(start_date, end_date)
 
     def post_time_entry(self, time_entry):
@@ -82,7 +81,7 @@ class Harvest:
             return True
         return False
 
-# Utility function to sync Harvest data
-def sync_harvest_data():
+
+def sync_harvest_data(days=30):
     harvest = Harvest()
-    harvest.sync_all_data()
+    harvest.sync_all_data(days)
