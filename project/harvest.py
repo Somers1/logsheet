@@ -63,7 +63,7 @@ class Harvest:
     def sync_all_data(self, days=30):
         self.get_clients()
         self.get_projects()
-        end_date = timezone.now().date()
+        end_date = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE).date()
         start_date = end_date - timezone.timedelta(days=days)
         self.get_time_entries(start_date, end_date)
 

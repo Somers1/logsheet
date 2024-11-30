@@ -6,7 +6,6 @@ from django.db import models
 from django.utils import timezone
 
 from project.importers import get_importer
-from .agent import llm
 from .calendar import AzureCalendarExport
 
 
@@ -216,30 +215,6 @@ class ProjectDaySummary(models.Model):
     def joined_events_text(self):
         return '\n'.join([f'Source {event.source.source_type}: {event.event_text}' for event in self.events()])
 
-    def summarise(self):
-        prompt = f"""
-        Here are the events that happened during my working session. 
-        Please summarise what was done in a couple concise dot points.
-        Do not use emails as events. Only use them as context. Do not print the source.
-        Only reply with the dot points. Do no prefix your response with anything.
-
-        Use this project description as context for the events: 
-        {self.project.description}
-
-        Events:
-        {self.joined_events_text()}
-
-        """
-        self.summary = strip_before_dash(llm.strong.invoke(prompt).content)
-        print(self.summary + '\n' + '-' * 50)
-        self.save()
-
-    def add_to_harvest(self):
-        # Harvest().post_project_day(self)
-        # self.uploaded_to_harvest = True
-        # self.save()
-        print(f'Added to {self} harvest')
-
 
 class DurationBlock(models.Model):
     duration = models.DurationField()
@@ -300,26 +275,6 @@ class EventBlock(models.Model):
 
     def joined_events_text(self):
         return '\n'.join([f'{event.source.source_type}: {event.event_text}' for event in self.events()])
-
-    def summarise(self):
-        prompt = f"""
-        Here are the events that happened during my working session. 
-        Please summarise the events in dot points that will be added to a timesheet and sent to the client.
-        Focus more on what was achieved rather than individual events. 
-        Do not use emails as events. Only use them as context.
-        Only reply with the dot points. Do no prefix your response with anything.
-        Please make it as concise as you possible can only including the really important information.
-                
-        Use this project description as context for the events: 
-        {self.project.description}
-        
-        Events:
-        {self.joined_events_text()}
-        
-        """
-        self.summary = strip_before_dash(llm.strong.invoke(prompt).content)
-        print(self.summary + '\n' + '-' * 50)
-        self.save()
 
     def add_to_calendar(self):
         AzureCalendarExport().add_event_block(self)
