@@ -47,7 +47,12 @@ class Harvest:
         }
         response = self.requester.get("https://api.harvestapp.com/v2/time_entries", params=params)
         time_entries_data = response.json()['time_entries']
+        
+        # Track harvest IDs that still exist
+        harvest_ids = []
+        
         for entry_data in time_entries_data:
+            harvest_ids.append(entry_data['id'])
             project = Project.objects.get(harvest_id=entry_data['project']['id'])
             TimeEntry.objects.update_or_create(
                 harvest_id=entry_data['id'],
@@ -59,6 +64,12 @@ class Harvest:
                     'billable': entry_data['billable']
                 }
             )
+        
+        # Delete time entries that no longer exist in Harvest
+        TimeEntry.objects.filter(
+            date__gte=start_date,
+            date__lte=end_date
+        ).exclude(harvest_id__in=harvest_ids).delete()
 
     def sync_all_data(self, days=30):
         self.get_clients()
