@@ -56,10 +56,13 @@ class Project(models.Model):
             if start_date.day == 1:
                 months_since_start += 1
             start_date += relativedelta(days=1)
-        return self.duration_before_time(month_start) - (self.monthly_duration * months_since_start)
+        return self.billable_duration_before_time(month_start) - (self.monthly_duration * months_since_start)
 
     def duration_before_time(self, timestamp):
         return self.timeentry_set.filter(date__lt=timestamp).aggregate(models.Sum('hours'))['hours__sum'] or timezone.timedelta()
+
+    def billable_duration_before_time(self, timestamp):
+        return self.timeentry_set.filter(date__lt=timestamp, billable=True).aggregate(models.Sum('hours'))['hours__sum'] or timezone.timedelta()
 
     def time_in_month(self, month):
         return self.events_in_month(month).aggregate(models.Sum('hours'))['hours__sum']
