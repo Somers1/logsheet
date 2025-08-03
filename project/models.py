@@ -64,11 +64,11 @@ class Project(models.Model):
     def billable_duration_before_time(self, timestamp):
         return self.timeentry_set.filter(date__lt=timestamp, billable=True).aggregate(models.Sum('hours'))['hours__sum'] or timezone.timedelta()
 
-    def time_in_month(self, month):
-        return self.events_in_month(month).aggregate(models.Sum('hours'))['hours__sum']
+    def time_in_month(self, month, year):
+        return self.events_in_month(month, year).aggregate(models.Sum('hours'))['hours__sum']
 
-    def events_in_month(self, month):
-        return self.timeentry_set.filter(date__month=month).order_by('-date')
+    def events_in_month(self, month, year):
+        return self.timeentry_set.filter(date__month=month, date__year=year).order_by('-date')
 
     def total_time_delta(self):
         return self.timeentry_set.aggregate(models.Sum('hours'))['hours__sum']

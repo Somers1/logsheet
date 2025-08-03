@@ -34,7 +34,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             start_date = timezone.datetime.strptime(
                 self.kwargs['month'], '%Y-%m').astimezone(settings.AS_LOCAL_TIME_ZONE)
         context['month'] = start_date.strftime('%B %Y')
-        context['event_blocks'] = context['project'].events_in_month(start_date.month)
+        context['event_blocks'] = context['project'].events_in_month(start_date.month, start_date.year)
 
         context['start_date'] = context['event_blocks'].aggregate(Min('date'))['date__min']
         context['end_date'] = context['event_blocks'].aggregate(Max('date'))['date__max']
