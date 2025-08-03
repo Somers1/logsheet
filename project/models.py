@@ -50,12 +50,14 @@ class Project(models.Model):
         return self.total_seconds() / 3600
 
     def carried_over_duration(self, month_start):
-        start_date = self.project_start_date
+        if not self.project_start_date or not self.monthly_duration:
+            return timezone.timedelta()
+        start_date = self.project_start_date.replace(day=1)
+        current_date = start_date
         months_since_start = 0
-        while start_date < month_start:
-            if start_date.day == 1:
-                months_since_start += 1
-            start_date += relativedelta(days=1)
+        while current_date < month_start:
+            months_since_start += 1
+            current_date += relativedelta(months=1)
         return self.billable_duration_before_time(month_start) - (self.monthly_duration * months_since_start)
 
     def duration_before_time(self, timestamp):
