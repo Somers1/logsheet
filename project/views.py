@@ -72,7 +72,7 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
             if start_date.date() >= context['project'].project_start_date:
                 budget = context['project'].monthly_duration
             context['total_budget'] = self.format_duration(budget)
-            context['remaining_hours'] = self.format_duration(budget + carryover_hours - total_billable)
+            context['remaining_hours'] = self.format_duration(budget - carryover_hours - total_billable)
         if context['project'].total_duration:
             context['month_duration'] = self.format_duration(total_duration)
             total_before_time = context['project'].duration_before_time(month_start)
