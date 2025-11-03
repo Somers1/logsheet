@@ -30,6 +30,8 @@ class ProjectTimesheetListView(LoginRequiredMixin, DetailView):
         # else:
         if self.kwargs['month'] == 'current':
             start_date = timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE)
+        elif self.kwargs['month'] == 'previous':
+            start_date = (timezone.now().astimezone(settings.AS_LOCAL_TIME_ZONE).replace(day=1) - timedelta(days=1)).replace(day=1)
         else:
             start_date = timezone.datetime.strptime(
                 self.kwargs['month'], '%Y-%m').astimezone(settings.AS_LOCAL_TIME_ZONE)

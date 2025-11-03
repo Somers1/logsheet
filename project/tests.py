@@ -283,3 +283,43 @@ class ProjectCalculationsTestCase(TestCase):
         # = 40 - 10 - 25 = 5
         remaining = self.project.monthly_duration - carryover - timedelta(hours=25)
         self.assertEqual(remaining, timedelta(hours=5))
+    
+    def test_july_2025_scenario(self):
+        """Test the specific July 2025 scenario reported by user"""
+        # Setup project with 32 hour monthly budget
+        project = Project.objects.create(
+            name='July Test Project',
+            client=self.client,
+            project_start_date=date(2025, 1, 1),
+            monthly_duration=timedelta(hours=32)
+        )
+        
+        # Previous months: slightly under budget to get -3.2 hours carryover
+        # 6 months (Jan-Jun) × 32 hours = 192 hours budget
+        # Use 188.8 hours to be 3.2 under budget
+        TimeEntry.objects.create(
+            project=project,
+            date=date(2025, 3, 15),
+            hours=timedelta(hours=188.8),
+            harvest_id='previous_months',
+            billable=True
+        )
+        
+        # July: 34.25 billable hours
+        TimeEntry.objects.create(
+            project=project,
+            date=date(2025, 7, 15),
+            hours=timedelta(hours=34.25),
+            harvest_id='july_2025',
+            billable=True
+        )
+        
+        july_start = date(2025, 7, 1)
+        carryover = project.carried_over_duration(july_start)
+        
+        # Carryover: 188.8 used - 192 budget = -3.2 (3.2 hours unused)
+        self.assertAlmostEqual(carryover.total_seconds(), timedelta(hours=-3.2).total_seconds(), places=2)
+        
+        # Remaining: 32 budget - (-3.2) - 34.25 = 32 + 3.2 - 34.25 = 0.95
+        remaining = project.monthly_duration - carryover - timedelta(hours=34.25)
+        self.assertAlmostEqual(remaining.total_seconds() / 3600, 0.95, places=2)
